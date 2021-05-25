@@ -20,7 +20,7 @@ npx tsc --init
 
 tsconfig settings:
 
-![tsconfig](/Users/forthy/Documents/GitHub/typescrpt-fp-training/guides/imgs/tsconfig.png)
+![tsconfig](imgs/tsconfig.png)
 
 [mongod](https://github.com/exqir/mongad#readme)
 

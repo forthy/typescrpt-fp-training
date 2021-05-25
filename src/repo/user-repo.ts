@@ -8,8 +8,8 @@ import { pipe } from 'fp-ts/lib/function';
 // data User = Name BornYear Gender
 enum Gender { Male, Female };
 
-type Name = { type: 'NAME', name: string; };
-type BornYear = { type: 'BORN_YEAR', year: number; };
+type Name = { type: 'NAME', name: string };
+type BornYear = { type: 'BORN_YEAR', year: number };
 
 interface User {
     name: Name;
