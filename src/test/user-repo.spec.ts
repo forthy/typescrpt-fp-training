@@ -3,7 +3,7 @@ import * as E from 'fp-ts/Either';
 import * as TE from 'fp-ts/TaskEither';
 import { connect } from 'mongad';
 import { MongoError, MongoClient } from 'mongodb';
-import { GenericContainer, StartedTestContainer } from 'testcontainers';
+import { GenericContainer, StartedTestContainer, StoppedTestContainer } from 'testcontainers';
 import { LogWaitStrategy } from 'testcontainers/dist/wait-strategy';
 
 describe('User repository', () => {
@@ -11,7 +11,7 @@ describe('User repository', () => {
   let mongoDBPort: number;
 
   beforeAll(async () => {
-    jest.setTimeout(30000);
+    jest.setTimeout(120000);
 
     tc = await new GenericContainer('mongo:4.2')
       .withExposedPorts(27017)
@@ -23,11 +23,20 @@ describe('User repository', () => {
   });
 
   afterAll(async () => {
-    try {
-      await tc.stop();
-    } catch (e) {
-      console.log(`Test container closing error: ${JSON.stringify(e)}`);
-    }
+    await TE.match<Error, void, StoppedTestContainer>(
+      e => console.log(e.message),
+      c => console.log(`container: ${JSON.stringify(c, null, 2)} was stopped successfully`)
+    )(TE.tryCatch(
+      () => tc.stop(),
+      e => new Error(`Test container closing error: ${JSON.stringify(e)}`)
+    ))();
+
+    // Imperative way of stopping the MongoDB container
+    // try {
+    //   await tc.stop();
+    // } catch (e) {
+    //   console.log(`Test container closing error: ${JSON.stringify(e)}`);
+    // }
   });
 
   it('should successfully initiate a User instance', () => {
