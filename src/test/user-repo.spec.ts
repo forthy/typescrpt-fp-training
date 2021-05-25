@@ -11,7 +11,7 @@ describe('User repository', () => {
   let mongoDBPort: number;
 
   beforeAll(async () => {
-    jest.setTimeout(30000);
+    jest.setTimeout(120000);
 
     tc = await new GenericContainer('mongo:4.2')
       .withExposedPorts(27017)
