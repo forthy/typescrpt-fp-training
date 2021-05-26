@@ -4,7 +4,7 @@ import * as TE from 'fp-ts/TaskEither';
 import { connect } from 'mongad';
 import { MongoError, MongoClient } from 'mongodb';
 import { GenericContainer, StartedTestContainer, StoppedTestContainer } from 'testcontainers';
-import { LogWaitStrategy } from 'testcontainers/dist/wait-strategy';
+// import { LogWaitStrategy } from 'testcontainers/dist/wait-strategy';
 
 describe('User repository', () => {
   let tc: StartedTestContainer;
@@ -13,10 +13,11 @@ describe('User repository', () => {
   beforeAll(async () => {
     jest.setTimeout(120000);
 
-    tc = await new GenericContainer('mongo:4.2')
+    tc = await new GenericContainer('mongo:latest')
       .withExposedPorts(27017)
       .withDefaultLogDriver()
-      .withWaitStrategy(new LogWaitStrategy('waiting for connections on port'))
+      // MongoDB 4.9 has no `waiting for connections on port` log text. XD
+      // .withWaitStrategy(new LogWaitStrategy('waiting for connections on port'))
       .start();
 
     mongoDBPort = tc.getMappedPort(27017);
