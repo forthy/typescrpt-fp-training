@@ -1,12 +1,13 @@
 import { TaskEither, right, map, chain, mapLeft } from 'fp-ts/TaskEither';
-import { getDb, insertOne } from 'mongad';
+import { findMany, getDb, insertOne } from 'mongad';
 import { MongoClient, Db, MongoError, WithId } from 'mongodb';
-import { run } from 'fp-ts/lib/ReaderTaskEither';
 import { pipe } from 'fp-ts/lib/function';
+import * as fp from 'lodash/fp';
+import { fromNullable, getOrElse, Option, some, none, sequenceArray } from 'fp-ts/lib/Option';
 
 // data Gender = Male | Female
 // data User = Name BornYear Gender
-enum Gender { Male, Female };
+enum Gender { Male = 'male', Female = 'female' };
 
 type Name = { type: 'NAME', name: string };
 type BornYear = { type: 'BORN_YEAR', year: number };
@@ -40,18 +41,101 @@ interface UserRepo {
      * @returns a promise of `Either<Error, Readonly<User>>`: the returned `User` is immutable
      */
     insertUser(name: Name, gender: Gender, bornYear: BornYear): TaskEither<Error, Readonly<User>>;
+
+    /**
+     * Find users with the given user name.
+     * findUsersByName :: Name -> TaskEither Error [User]
+     * 
+     * @param userName - a user name
+     * @return Either an option of array of users or an `Error`
+     */
+    findUsersByName(userName: Name): TaskEither<Error, Option<Readonly<Array<User>>>>;
+
+    /**
+     * Find users with the given gender.
+     * findUsersByGender :: Gender -> TaskEither Error [User]
+     * 
+     * @param gender - a user's gender
+     * @returns Either an option of array of users or an `Error`
+     */
+    findUsersByGender(gender: Gender): TaskEither<Error, Option<Readonly<Array<User>>>>;
+
+    /**
+     * Find users with the born year.
+     * findUserByBornYear :: BornYear -> TaskEither Error [User]
+     * 
+     * @param bornYear - a user's born year
+     * @returns Either an option of array of users or an `Error`
+     */
+    findUserByBornYear(bornYear: BornYear): TaskEither<Error, Option<Readonly<Array<User>>>>;
 }
 
 class TestUserRepoImpl implements UserRepo {
+    private static instance: TestUserRepoImpl;
+    private internalMap: Map<string, User>;
+
+    private constructor() {
+        this.internalMap = new Map<string, User>();
+    }
+
     /**
      * A smart constructor of `TestUserRepoImpl` instance.
      * 
      * @returns a `TestUserRepoImpl` instance
      */
-    static of(): TestUserRepoImpl { return new TestUserRepoImpl(); }
+    static of(): TestUserRepoImpl { return getOrElse(() => new TestUserRepoImpl())(fromNullable(TestUserRepoImpl.instance)); }
 
-    insertUser(name: Name, gender: Gender, bornYear: BornYear): TaskEither<Error, Readonly<User>> { return right({ name, gender, bornYear }); }
+    insertUser(name: Name, gender: Gender, bornYear: BornYear): TaskEither<Error, Readonly<User>> {
+        const user = { name, gender, bornYear };
+
+        this.internalMap.set(`${name.name}|${gender.valueOf()}|${bornYear.year}`, user);
+
+        return right(user);
+    }
+
+    findUsersByName(userName: Name): TaskEither<Error, Option<Readonly<Array<User>>>> {
+        let resultArray: Array<Option<User>> = [];
+
+        for (let k of this.internalMap.keys()) {
+            if (fp.includes(userName.name)(k.split('|'))) {
+                resultArray.push(fromNullable(this.internalMap.get(k)));
+            }
+        }
+
+        return resultArray.length === 0 ? right(none) : right(sequenceArray(resultArray));
+    }
+
+    findUsersByGender(gender: Gender): TaskEither<Error, Option<Readonly<Array<User>>>> {
+        let resultArray: Array<Option<User>> = [];
+
+        for (let k of this.internalMap.keys()) {
+            if (fp.includes(gender.valueOf())(k.split('|'))) {
+                resultArray.push(fromNullable(this.internalMap.get(k)));
+            }
+        }
+
+        return resultArray.length === 0 ? right(none) : right(sequenceArray(resultArray));
+    }
+
+    findUserByBornYear(bornYear: BornYear): TaskEither<Error, Option<Readonly<Array<User>>>> {
+        let resultArray: Array<Option<User>> = [];
+
+        for (let k of this.internalMap.keys()) {
+            if (fp.includes(bornYear.year.toString(10))(k.split('|'))) {
+                resultArray.push(fromNullable(this.internalMap.get(k)));
+            }
+        }
+
+        return resultArray.length === 0 ? right(none) : right(sequenceArray(resultArray));
+    }
 }
+
+type UserBSON =
+    {
+        name: string,
+        gender: string,
+        bornYear: number
+    }
 
 // MongoDB support
 class MongoUserRepoImpl implements UserRepo {
@@ -67,7 +151,7 @@ class MongoUserRepoImpl implements UserRepo {
         return new MongoUserRepoImpl(mongoClientTE);
     }
 
-    private userToDoc(u: User) {
+    private userToDoc(u: User): UserBSON {
         return {
             name: u.name.name,
             gender: u.gender === Gender.Male ? 'male' : 'female',
@@ -77,7 +161,7 @@ class MongoUserRepoImpl implements UserRepo {
 
     insertUser(name: Name, gender: Gender, bornYear: BornYear): TaskEither<Error, Readonly<User>> {
         const insertOneTE: (db: Db) => TaskEither<MongoError, WithId<{ name: string, gender: string, bornYear: number; }>> =
-            (db: Db) => () => run(insertOne(this.USER_COLLECTION, this.userToDoc({ name, gender, bornYear })), db);
+            (db) => insertOne(this.USER_COLLECTION, this.userToDoc({ name, gender, bornYear }))(db);
 
         return pipe(
             this.mongoClientTE,
@@ -85,6 +169,81 @@ class MongoUserRepoImpl implements UserRepo {
             chain(insertOneTE),
             mapLeft((e) => new Error(`Message: ${e.message} - Label: ${JSON.stringify(e.errorLabels)}`)),
             map(_ => ({ name, gender, bornYear }))
+        );
+    }
+
+    findUsersByName(userName: Name): TaskEither<Error, Option<Readonly<Array<User>>>> {
+        const userFinder: (db: Db) => TaskEither<MongoError, Array<UserBSON>> =
+            (db) => findMany<UserBSON>(this.USER_COLLECTION, { name: { $eq: userName.name } })(db);
+
+        return pipe(
+            this.mongoClientTE,
+            map(getDb(this.USER_DB)),
+            chain(userFinder),
+            mapLeft((e) => new Error(`Message: ${e.message} - Label: ${JSON.stringify(e.errorLabels)}`)),
+            map<Array<UserBSON>, Option<Readonly<Array<User>>>>(bson => {
+                const users = (): Option<Readonly<Array<User>>> => {
+                    const u: Readonly<Array<User>> = bson.map<User>(u => ({
+                        name: nameOf(u.name),
+                        gender: u.gender === Gender.Male.valueOf() ? Gender.Male : Gender.Female,
+                        bornYear: bornYearOf(u.bornYear)
+                    }));
+
+                    return u.length > 0 ? some(u) : none;
+                }
+
+                return users();
+            })
+        );
+    }
+
+    findUsersByGender(gender: Gender): TaskEither<Error, Option<Readonly<Array<User>>>> {
+        const userFinder: (db: Db) => TaskEither<MongoError, Array<UserBSON>> =
+            (db) => findMany<UserBSON>(this.USER_COLLECTION, { gender: { $eq: gender.valueOf() } })(db);
+
+        return pipe(
+            this.mongoClientTE,
+            map(getDb(this.USER_DB)),
+            chain(userFinder),
+            mapLeft((e) => new Error(`Message: ${e.message} - Label: ${JSON.stringify(e.errorLabels)}`)),
+            map<Array<UserBSON>, Option<Readonly<Array<User>>>>(bson => {
+                const users = (): Option<Readonly<Array<User>>> => {
+                    const u: Readonly<Array<User>> = bson.map<User>(u => ({
+                        name: nameOf(u.name),
+                        gender: u.gender === Gender.Male.valueOf() ? Gender.Male : Gender.Female,
+                        bornYear: bornYearOf(u.bornYear)
+                    }));
+
+                    return u.length > 0 ? some(u) : none;
+                }
+
+                return users();
+            })
+        );
+    }
+
+    findUserByBornYear(bornYear: BornYear): TaskEither<Error, Option<Readonly<Array<User>>>> {
+        const userFinder: (db: Db) => TaskEither<MongoError, Array<UserBSON>> =
+            (db) => findMany<UserBSON>(this.USER_COLLECTION, { bornYear: { $eq: bornYear.year } })(db);
+
+        return pipe(
+            this.mongoClientTE,
+            map(getDb(this.USER_DB)),
+            chain(userFinder),
+            mapLeft((e) => new Error(`Message: ${e.message} - Label: ${JSON.stringify(e.errorLabels)}`)),
+            map<Array<UserBSON>, Option<Readonly<Array<User>>>>(bson => {
+                const users = (): Option<Readonly<Array<User>>> => {
+                    const u: Readonly<Array<User>> = bson.map<User>(u => ({
+                        name: nameOf(u.name),
+                        gender: u.gender === Gender.Male.valueOf() ? Gender.Male : Gender.Female,
+                        bornYear: bornYearOf(u.bornYear)
+                    }));
+
+                    return u.length > 0 ? some(u) : none;
+                }
+
+                return users();
+            })
         );
     }
 }

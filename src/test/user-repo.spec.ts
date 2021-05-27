@@ -1,6 +1,8 @@
 import * as U from '../repo/user-repo';
 import * as E from 'fp-ts/Either';
+import { Option, match, some, ap } from 'fp-ts/Option';
 import * as TE from 'fp-ts/TaskEither';
+import { pipe } from 'fp-ts/lib/function';
 import { connect } from 'mongad';
 import { MongoError, MongoClient } from 'mongodb';
 import { GenericContainer, StartedTestContainer, StoppedTestContainer } from 'testcontainers';
@@ -64,15 +66,60 @@ describe('User repository', () => {
     // An UserRepo stub;
     const userRepo = U.TestUserRepoImpl.of();
 
-    expect(await userRepo.insertUser(name, gender, bornYear)()).toStrictEqual(E.right(richard));
+    const foundUsersE = await pipe(
+      TE.bindTo('insertedUser')(userRepo.insertUser(name, gender, bornYear)),
+      TE.bind('foundUsersByName', (_) => userRepo.findUsersByName(name)),
+      TE.bind('foundUsersByGender', (_) => userRepo.findUsersByGender(gender)),
+      TE.bind('foundUserByBornYear', (_) => userRepo.findUserByBornYear(bornYear)),
+      TE.map(({ insertedUser, foundUsersByName, foundUsersByGender, foundUserByBornYear }) => pipe(
+        some((a: Readonly<Array<U.User>>) => (b: Readonly<Array<U.User>>) => (c: Readonly<Array<U.User>>) => a.concat(b).concat(c)),
+        ap(foundUsersByName),
+        ap(foundUsersByGender),
+        ap(foundUserByBornYear)
+      ))
+    )();
+
+    E.match<Error, Option<Readonly<Array<U.User>>>, void>(
+      e => fail(e.message),
+      r => {
+        match<Readonly<Array<U.User>>, void>(
+          () => fail('failed to find any user'),
+          ua => {
+            expect(ua.length).toBe(3);
+            expect(ua).toStrictEqual([richard, richard, richard])
+          }
+        )(r);
+      }
+    )(foundUsersE);
 
     const mongoClientTE = connect(`mongodb://localhost:${mongoDBPort}`);
     const mongoUserRepo = U.MongoUserRepoImpl.of(mongoClientTE);
 
-    E.match<Error, U.User, void>(
-      e => fail(e),
-      u => expect(u).toStrictEqual(richard)
-    )(await mongoUserRepo.insertUser(name, gender, bornYear)());
+    const mFoundUsersE = await pipe(
+      TE.bindTo('insertedUser')(mongoUserRepo.insertUser(name, gender, bornYear)),
+      TE.bind('foundUsersByName', (_) => mongoUserRepo.findUsersByName(name)),
+      TE.bind('foundUsersByGender', (_) => mongoUserRepo.findUsersByGender(gender)),
+      TE.bind('foundUserByBornYear', (_) => mongoUserRepo.findUserByBornYear(bornYear)),
+      TE.map(({ insertedUser, foundUsersByName, foundUsersByGender, foundUserByBornYear }) => pipe(
+        some((a: Readonly<Array<U.User>>) => (b: Readonly<Array<U.User>>) => (c: Readonly<Array<U.User>>) => a.concat(b).concat(c)),
+        ap(foundUsersByName),
+        ap(foundUsersByGender),
+        ap(foundUserByBornYear)
+      ))
+    )();
+
+    E.match<Error, Option<Array<U.User>>, void>(
+      e => fail(e.message),
+      r => {
+        match<Array<U.User>, void>(
+          () => fail('failed to find any user'),
+          ua => {
+            expect(ua.length).toBe(3);
+            expect(ua).toStrictEqual([richard, richard, richard])
+          }
+        )(r);
+      }
+    )(mFoundUsersE);
 
     await TE.match<MongoError, void, void>(
       e => console.log(`err: ${JSON.stringify(e, null, 2)}`),
