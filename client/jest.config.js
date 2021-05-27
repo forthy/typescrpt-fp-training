@@ -3,7 +3,7 @@ module.exports = {
   transform: {
     "^.+\\.(t|j)sx?$": "ts-jest",
   },
-  testEnvironment: "node",
+  testEnvironment: "jsdom",
   moduleFileExtensions: [
     "ts",
     "tsx",
@@ -12,5 +12,4 @@ module.exports = {
     "json",
     "node",
   ],
-  modulePathIgnorePatterns: ["/client/"]
 };
