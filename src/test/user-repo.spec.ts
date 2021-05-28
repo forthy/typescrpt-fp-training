@@ -5,32 +5,37 @@ import * as TE from 'fp-ts/TaskEither';
 import { pipe } from 'fp-ts/lib/function';
 import { connect } from 'mongad';
 import { MongoError, MongoClient } from 'mongodb';
-import { GenericContainer, StartedTestContainer, StoppedTestContainer } from 'testcontainers';
+import {
+  DockerComposeEnvironment,
+  StartedDockerComposeEnvironment,
+  DownedDockerComposeEnvironment
+} from 'testcontainers';
+import * as path from 'path';
 // import { LogWaitStrategy } from 'testcontainers/dist/wait-strategy';
 
 describe('User repository', () => {
-  let tc: StartedTestContainer;
   let mongoDBPort: number;
+  let environment: StartedDockerComposeEnvironment;
 
   beforeAll(async () => {
     jest.setTimeout(120000);
 
-    tc = await new GenericContainer('mongo:latest')
-      .withExposedPorts(27017)
-      .withDefaultLogDriver()
-      // MongoDB 4.9 has no `waiting for connections on port` log text. XD
-      // .withWaitStrategy(new LogWaitStrategy('waiting for connections on port'))
-      .start();
+    const composeFilePath = path.resolve(__dirname, '../..');
+    const composeFile = 'docker-compose.yml';
 
-    mongoDBPort = tc.getMappedPort(27017);
+    environment = await new DockerComposeEnvironment(composeFilePath, composeFile).up();
+
+    const mongoDBContainer = environment.getContainer("mongodb_1");
+
+    mongoDBPort = mongoDBContainer.getMappedPort(27017);
   });
 
   afterAll(async () => {
-    await TE.match<Error, void, StoppedTestContainer>(
+    await TE.match<Error, void, DownedDockerComposeEnvironment>(
       e => console.log(e.message),
       c => console.log(`container: ${JSON.stringify(c, null, 2)} was stopped successfully`)
     )(TE.tryCatch(
-      () => tc.stop(),
+      () => environment.down(),
       e => new Error(`Test container closing error: ${JSON.stringify(e)}`)
     ))();
 
