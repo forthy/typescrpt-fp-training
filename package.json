@@ -33,6 +33,8 @@
     "typescript": "^4.2.4"
   },
   "dependencies": {
+    "@asyncapi/generator": "^1.7.0",
+    "@sinclair/typebox": "^0.16.7",
     "@types/lodash": "^4.14.170",
     "dotenv": "^10.0.0",
     "fastify": "^3.15.1",
