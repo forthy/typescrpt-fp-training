@@ -62,7 +62,7 @@ describe('User repository', () => {
     const gender = U.Gender.Male;
     const bornYear = U.bornYearOf(1969);
 
-    const richard: Readonly<U.User> = U.userOf(name, gender, bornYear);;
+    const richard: Readonly<U.User> = U.userOf(name, gender, bornYear);
 
     // An UserRepo stub;
     const userRepo = U.TestUserRepoImpl.of();
