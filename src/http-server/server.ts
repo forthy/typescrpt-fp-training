@@ -6,7 +6,6 @@ import { sayHello } from './routes/v1/hello';
 import FastifyStatic from 'fastify-static'
 import path from 'path'
 
-
 const shouldPrettyPrint = getOrElse(() => false)(map<RuntimeEnv, boolean>(e => e.env === 'dev')(EnvConfigRepoImpl.of().runtimeEnv()));
 const server: FastifyInstance<
   Server,
@@ -20,11 +19,11 @@ const server: FastifyInstance<
  * @param port - HTTP/s port for this Fastify server
  * @returns a Fastify server instance
  */
-const startFastify = (port: FastifyPort): FastifyInstance<
+const startFastify: (port: FastifyPort) => FastifyInstance<
   Server,
   IncomingMessage,
   ServerResponse
-> => {
+> = (port) => {
   server.listen(port, (err, _) => {
     // if (err) {
     //   console.error(err);

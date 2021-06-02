@@ -9,13 +9,21 @@ import { fromNullable, getOrElse, Option, some, none, sequenceArray } from 'fp-t
 // data User = Name BornYear Gender
 enum Gender { Male = 'male', Female = 'female' };
 
-type Name = { type: 'NAME', name: string };
-type BornYear = { type: 'BORN_YEAR', year: number };
+type Name =
+    {
+        readonly type: 'NAME',
+        readonly name: string
+    };
+type BornYear =
+    {
+        readonly type: 'BORN_YEAR',
+        readonly year: number
+    };
 
 interface User {
-    name: Name;
-    bornYear: BornYear;
-    gender: Gender;
+    readonly name: Name;
+    readonly bornYear: BornYear;
+    readonly gender: Gender;
 }
 const nameOf = (name: string): Readonly<Name> => ({
     type: 'NAME',
@@ -25,6 +33,7 @@ const bornYearOf = (year: number): Readonly<BornYear> => ({
     type: 'BORN_YEAR',
     year
 });
+const userOf = (name: Name, gender: Gender, bornYear: BornYear): Readonly<User> => ({ name, gender, bornYear });
 
 /**
  * UserRepo is a collection of functions that handle `User` type's data management.
@@ -248,4 +257,4 @@ class MongoUserRepoImpl implements UserRepo {
     }
 }
 
-export { Gender, Name, BornYear, User, nameOf, bornYearOf, TestUserRepoImpl, MongoUserRepoImpl };
+export { Gender, Name, BornYear, User, nameOf, bornYearOf, userOf, TestUserRepoImpl, MongoUserRepoImpl };

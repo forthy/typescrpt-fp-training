@@ -48,11 +48,7 @@ describe('User repository', () => {
   });
 
   it('should successfully initiate a User instance', () => {
-    const richard = {
-      name: U.nameOf('Richard Chuo'),
-      gender: U.Gender.Male,
-      bornYear: U.bornYearOf(1969)
-    };
+    const richard = U.userOf(U.nameOf('Richard Chuo'), U.Gender.Male, U.bornYearOf(1969));
 
     expect(richard).toStrictEqual({
       name: U.nameOf('Richard Chuo'),
@@ -66,7 +62,7 @@ describe('User repository', () => {
     const gender = U.Gender.Male;
     const bornYear = U.bornYearOf(1969);
 
-    const richard: Readonly<U.User> = { name, gender, bornYear };
+    const richard: Readonly<U.User> = U.userOf(name, gender, bornYear);
 
     // An UserRepo stub;
     const userRepo = U.TestUserRepoImpl.of();
