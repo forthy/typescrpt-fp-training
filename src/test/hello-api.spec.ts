@@ -1,8 +1,30 @@
-import * as S from '../http-server/index';
+import { FastifyInstance } from 'fastify';
+import { Server, IncomingMessage, ServerResponse } from 'http';
+import * as S from '../http-server/server';
+import { fastifyPortOf } from '../repo/config-repo';
+import { tryCatch, match } from 'fp-ts/Either';
 
-const svr = S.server;
+let svr: FastifyInstance<
+  Server,
+  IncomingMessage,
+  ServerResponse
+>
 
 describe('Hello route', () => {
+  beforeAll(() => {
+    svr = S.startFastify(fastifyPortOf(8888));
+  });
+
+  afterAll(() => {
+    match(
+      e => console.log(e),
+      _ => console.log('Closing Fastify server is done!')
+    )(tryCatch(
+      () => svr.close(() => {}),
+      (reason) => new Error(`Failed to close a Fastify server, reason: ${reason}`)
+    ));
+  });
+
   it(`hello should say 'hello'`, async () => {
     const response = await svr.inject({ method: 'GET', url: '/v1/hello' });
 
