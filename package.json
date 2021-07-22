@@ -42,7 +42,7 @@
     "testcontainers": "^7.11.0",
     "ts-jest": "^26.5.6",
     "ts-node": "^9.1.1",
-    "typescript": "^4.2.4"
+    "typescript": "^4.3.4"
   },
   "dependencies": {
     "@asyncapi/generator": "^1.7.4",

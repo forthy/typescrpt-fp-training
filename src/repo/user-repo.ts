@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { TaskEither, right, map, chain, mapLeft } from 'fp-ts/TaskEither'
 import { findMany, getDb, insertOne } from 'mongad'
 import { MongoClient, Db, MongoError, WithId } from 'mongodb'

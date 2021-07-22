@@ -4,6 +4,7 @@ import { Server, IncomingMessage, ServerResponse } from 'http'
 import * as S from '../http-server/server'
 import { fastifyPortOf } from '../repo/config-repo'
 import { tryCatch, match } from 'fp-ts/Either'
+import { pipe } from 'fp-ts/function'
 
 let svr: FastifyInstance<Server, IncomingMessage, ServerResponse>
 
@@ -13,13 +14,14 @@ describe('Hello route', () => {
   })
 
   afterAll(() => {
-    match(
-      (e) => console.log(e),
-      (_) => console.log('Closing Fastify server is done!')
-    )(
+    pipe(
       tryCatch(
         () => svr.close(() => {}),
         (reason) => new Error(`Failed to close a Fastify server, reason: ${reason}`)
+      ),
+      match(
+        (e) => console.log(e),
+        (_) => console.log('Closing Fastify server is done!')
       )
     )
   })
